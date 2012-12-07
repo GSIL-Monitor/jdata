@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+
+{% block headjssrc %}
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/mustache.min.js"></script>
+    <script src="/static/js/underscore-min.js"></script>
+    <script src="/static/js/backbone-min.js"></script>
+    <script src="/static/backboneui/4_laconic.js"></script>
+    <script src="/static/backboneui/moment-1.4.0.js"></script>
+    <link href="/static/backboneui/backbone-ui-min.css" rel="stylesheet"/>
+    <script src="/static/backboneui/backbone-ui-min.js"></script>
+    <script src="/static/backboneui/jsbeautify.js"></script>
+    <script src="/static/backboneui/prettify.js"></script>
+    <script src="/static/backboneui/html5shiv.js"></script>
+     <style>
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div id="step-one" class="span8">
+    <!--
+    输入数据库读写库信息和表的分表信息 
+    -->
+        <h5>项目名字</h5>
+        <div id="KEY" class="span3"></div>
+        <h5>详细描述</h5>
+        <div id="NAME" class="span3"></div>
+        <h5>是否在各种查中显示</h5>
+        <div id="SHOW_IN_QUERY" class="span3"></div>
+    </div>
+    <div id="step-two" class="span8">
+    <div id="DB-mysql">
+        <h5>写数据库</h5>
+        <div id="WRITERURL"></div>
+        <h5>读数据库</h5>
+        <div id="READERURL"></div>
+        <div id="DB-mysql-writer" style="display:none">
+            <h5>数据库主机</h5>
+            <div id="DB-mysql-writer-db_host">
+            </div>
+            <h5>数据库端口</h5>
+            <div id="DB-mysql-writer-db_port">
+            </div>
+            <h5>数据库名</h5>
+            <div id="DB-mysql-writer-db">
+            </div>
+            <h5>数据库用户名</h5>
+            <div id="DB-mysql-writer-db_user">
+            </div>
+            <h5>数据库用户密码</h5>
+            <div id="DB-mysql-writer-db_passwd">
+            </div>
+        </div>
+    </div>
+    </div>
+    <div id="step-three" class="span8" style="display:none">
+        <h5>读数据库</h5>
+        <div id="DB-mysql-reader" style="display:none">
+            <h5>数据库主机</h5>
+            <div id="DB-mysql-reader-db_host">
+            </div>
+            <h5>数据库端口</h5>
+            <div id="DB-mysql-reader-db_port">
+            </div>
+            <h5>数据库名</h5>
+            <div id="DB-mysql-reader-db">
+            </div>
+            <h5>数据库用户名</h5>
+            <div id="DB-mysql-reader-db_user">
+            </div>
+            <h5>数据库用户密码</h5>
+            <div id="DB-mysql-reader-db_passwd">
+            </div>
+        </div>
+    </div>
+    <div id="step-four" class="span8">
+        <h5>分表规则</h5>
+        <h6>4:year, 6:month,  8:day(default),  10:hour,  12:minute</h6>
+        <div id="DB-mysql-table_split_idx"></div>
+        <h5>表前缀</h5>
+        <div id="DB-mysql-tableprefix"></div>
+        <div id="NAME"></div>
+    </div>
+    <div id="step-five" class="span8">
+    <!--
+    输入表的字段信息和主键选取
+    -->
+        <h5>表字段信息</h5>
+        <div id="METADB_INPUT"></div>
+        <div id="METADB">
+    </div>
+    </div>
+    <div id="step-six" class="span8">
+    <!--
+    输入字段的别名信息 
+    将别名映射到sql表达式
+    -->
+        <h5>表别名和函数处理</h5>
+        <div id="FIELDS_ALIAS_INPUT"></div>
+        <div id="FIELDS_ALIAS"></div>
+    </div>
+    <div id="step-seven" class="span8" style="display:none">
+
+        <h5>添加授权Ip</h5>
+        <div id="ALLOWIPS"></div>
+        <div id="IPS"></div>
+    </div>
+    <div id="step-finish" class="span8">
+
+        <h5>结束保存</h5>
+        <div id="finish"><button style="font-size:32px;background-color:#5798e3"><strong>完成</strong></button></div>
+    </div>
+    <div id="total_board">
+    </div>
+    <div class="nav" id="nav" style="position: fixed; z-index:100;top:60%;right:60%">
+        <p><span id="step-prev" style="">上一步</span><span id="step-next">下一步</span></p>
+    </div>
+{% include "total.tmpl" %}
+{% endblock %}
+
+
+{% block footjssrc %}
+    <script src="/static/js/init.js"></script>
+    <script src="/static/js/model.js"></script>
+    <script src="/static/js/view.js"></script>
+    <script src="/static/js/app.js"></script>
+{% endblock %}

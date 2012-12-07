@@ -1,0 +1,10 @@
+<html>
+    <head>
+    </head>
+<body>
+    <a href="/web/create">创建</a>
+    {% for obj in confs %}
+    <p>{{obj.key}}:<a href="/web/object/{{obj.key}}" target="_blank">{{obj.value.NAME}}</a> </p>
+    {% endfor %}
+</body>
+</html>

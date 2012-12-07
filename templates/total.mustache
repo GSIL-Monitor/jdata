@@ -1,0 +1,84 @@
+<h3>{{KEY}}</h3>
+<h5>{{NAME}}</h5>
+<h5>show in query:{{SHOW_IN_QUERY}}</h5>
+{{#DB}}
+<p>读数据库</p>
+<p>{{readerurl}}</p>
+<p>写数据库</p>
+<p>{{writerurl}}</p>
+{{#mysql}}
+
+<!--
+<p>数据库</p>
+<div dis="reader">
+<p>读数据库</p>
+{{#reader}}
+<p>数据库:{{db_host}}</p>
+<p>数据库端口:{{db_port}}</p>
+<p>数据库名:{{db}}</p>
+<p>数据库用户:{{db_user}}</p>
+<p>数据库密码:{{db_password}}</p>
+{{/reader}}
+</div>
+<div dis="writer">
+<p>写数据库</p>
+{{#writer}}
+<p>数据库:{{db_host}}</p>
+<p>数据库端口:{{db_port}}</p>
+<p>数据库名:{{db}}</p>
+<p>数据库用户:{{db_user}}</p>
+<p>数据库密码:{{db_password}}</p>
+{{/writer}}
+</div>
+-->
+{{/mysql}}
+<p>表前缀:{{tableprefix}}</p>
+<p>分表规则:{{table_split_idx}}</p>
+{{/DB}}
+
+<h3>表信息</h3>
+<table style="border:1px solid #C3C3C3;font-size:10px;border-collapse: collapse;">
+<thead>
+<tr style="border-collapse: collapse;">
+    <th>字段名</th>
+    <th>数据类型</th>
+    <th>别名</th>
+</tr>
+</thead>
+<tbody>
+{{#METADB}}
+<tr>
+<td>{{name}}</td>
+<td>{{lambda}}</td>
+<td>{{alias}}</td>
+</tr>
+{{/METADB}}
+</tbody>
+</table>
+<!--
+<p>主键</p>
+<p>
+{{#PRIMART_KEY}}
+    {{name}},
+{{/PRIMART_KEY}}
+</p>
+-->
+
+<h3>字段别名</h3>
+<table>
+<thead>
+    <tr>
+        <th>字段名</th>
+        <th>表达式</th>
+        <th>别名</th>
+    </tr>
+</thead>
+<tbody>
+{{#FIELDS_ALIAS}}
+<tr>
+    <td>{{name}}</td>
+    <td>{{lambda}}</td>
+    <td>{{alias}}</td>
+</tr>
+{{/FIELDS_ALIAS}}
+</tbody>

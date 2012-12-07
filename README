@@ -1,0 +1,21 @@
+Jdata(http://jdata.qiyi.domain/) 是一款对日志统计结果数据（事实表）进行存储、查询和展示的服务。
+Jdata的角色，在数据分析所处的位置：
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;源数据（日志）   ---->  （日志）收集系统   -->   计算系统（Hadoop MapReduce等）  --->  对统计结果的保存、查询（Jdata）
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://qss.inter.qiyi.domain/qiyidoc/jdata.pptx"  target="_blank" class="link">简介PPT下载</a>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://wiki.qiyi.domain/display/sys/Jdata"  target="_blank" class="link">Wiki</a>
+
+##################################################################
+2012年3月5日 14:39:11：加入缓存（memcached@10.11.50.44）  支持对历史sql数据的缓存
+2012年3月5日 16:10:17：支持对缓存的刷新（_refresh参数，详细见wiki）
+2012年3月5日 18:01:18：支持MySQL读写分离，SELECT语句发往读库，其他语句发往写库（读库域名指向多个IP,即可实现简单负载均衡）
+2012年3月8日 13:16:17：引入plugin概念，plugin可以对数据的再处理，目前只有一个filter模块
+2012年6月27日 14:56:26：数据导入功能增强，支持3种模式：ignore | replace | append
+2012年7月30日 10:22:39：通用查询接口优化，返回结果更详细更友好（包含本次查询共处理的行数、耗时、字段元数据等）
+2012年9月26日 23:58:46：全面支持完全分布式MySQL Cluster结构，兼容之前的每份数据唯一对应一组MySQL主从的设计方案，现在理论上可以做到把一个query打散到多台MySQL机器上，并且不同数据可以存储在一台MySQL中
+
+
+
+

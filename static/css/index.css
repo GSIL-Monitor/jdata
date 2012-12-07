@@ -1,0 +1,66 @@
+.container{
+margin:auto
+}
+
+#step-two,#step-three{
+}
+
+hr{
+color:red;
+}
+
+#total_board{
+position:fixed;
+top:20px;
+right:20px;
+background:#fff;
+}
+#total_board p {
+    font-size:10px;
+    margin:0px 0px 0px 0px;
+    padding:0px 0px 0px 0px;
+}
+#total_board h3 {
+    font-size:12px;
+    margin:0px 0px 0px 0px;
+    padding:0px 0px 0px 0px;
+}
+#total_board h5 {
+    font-size:12px;
+    margin:0px 0px 0px 0px;
+    padding:0px 0px 0px 0px;
+}
+
+h5{
+    margin:0px 0px 0px 0px;
+}
+#step-one,#step-two,#step-three,#step-four,#step-five,#step-six,#step-seven,#step-finish {
+    height:auto;
+    width:800px;
+    margin:auto auto auto 80px;
+}
+table{
+    background-color: white;
+    border: 1px solid #C3C3C3;
+    border-collapse: collapse;
+    width: 100%;
+    font-size:10px;
+}
+tbody,thead{
+    display: table-row-group;
+    vertical-align: middle;
+    border-color: inherit;
+}
+tr{
+    display: table-row;
+    vertical-align: inherit;
+    border-color: inherit;
+    border-collapse: collapse;
+}
+th,td{
+    background-color: #E5EECC;
+    border: 1px solid #C3C3C3;
+    padding: 1px;
+    vertical-align: top;
+    text-align: left;
+}

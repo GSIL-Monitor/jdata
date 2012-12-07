@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{{title}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{description}}">
+    <meta name="author" content="{{author}}">
+    <meta http-equiv="X-UA-Compatible" value="IE=edge" />
+    <!--
+    <link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet">
+    -->
+    <link href="/static/css/index.css" rel="stylesheet">
+    {% block headjssrc %}
+    {% endblock %}
+    {% block headcss %}
+    {% endblock %}
+  </head>
+<body>
+<div class="container">
+{% block body %}
+{% endblock %}
+</div>
+</body>
+{% block footjssrc %}
+{% endblock %}
+</html>
+
+
+
+
