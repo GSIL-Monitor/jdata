@@ -4,6 +4,8 @@ from jdata.djutils.views import HttpResponse,project_dir
 import urls
 import urllib2
 
+#3
+
 def _text2html(str):
     return str.replace('\n','<br>').replace(' ','&nbsp;').replace('\t','&nbsp;' * 10)
 
