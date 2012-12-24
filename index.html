@@ -1,130 +1,74 @@
-<!DOCTYPE html>
+<!doctype html>
+<!-- The Time Machine GitHub pages theme was designed and developed by Jon Rohan, on Feb 7, 2012. -->
+<!-- Follow him for fun. http://twitter.com/jonrohan. Tail his code on http://github.com/jonrohan -->
 <html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 
-  <head>
-    <meta charset='utf-8' />
-    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="iQIYI MySQL服务托管平台 : " />
+  <link rel="stylesheet" href="stylesheets/stylesheet.css" media="screen"/>
+  <link rel="stylesheet" href="stylesheets/pygment_trac.css"/>
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script type="text/javascript" src="javascripts/script.js"></script>
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+  <title>Jdata</title>
+  <meta name="description" content="">
 
-    <title>iQIYI MySQL服务托管平台</title>
-  </head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <body>
+</head>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/CuiJing/jdata">View on GitHub</a>
+<body>
 
-          <h1 id="project_title">iQIYI MySQL服务托管平台</h1>
-          <h2 id="project_tagline"></h2>
-
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/CuiJing/jdata/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/CuiJing/jdata/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <h1>iQIYI MySQL服务托管平台</h1>
+  <div class="wrapper">
+    <header>
+      <h1 class="title">Jdata</h1>
+    </header>
+    <div id="container">
+      <p class="tagline"></p>
+      <div id="main" role="main">
+        <div class="download-bar">
+        <div class="inner">
+          <a href="https://github.com/CuiJing/jdata/tarball/master" class="download-button tar"><span>Download</span></a>
+          <a href="https://github.com/CuiJing/jdata/zipball/master" class="download-button zip"><span>Download</span></a>
+          <a href="https://github.com/CuiJing/jdata" class="code">View Jdata on GitHub</a>
+        </div>
+        <span class="blc"></span><span class="trc"></span>
+        </div>
+        <article class="markdown-body">
+          <h1>Jdata</h1>
 
 <h2>目标</h2>
 
-<p>通过统一集成化的MySQL服务托管平台（以下简称“MySQL平台”）托管MySQL服务，可以给各个项目团队降低部署运维成本，节省人力成本，提供工作效率。</p>
+<p>Jdata() 是一款对日志统计结果数据（事实表）进行存储、查询和展示的服务。</p>
 
-<blockquote>
-<ul>
-<li>   硬件申请</li>
-<li>   环境部署</li>
-<li>   硬件、OS监控</li>
-<li>   MySQL监控</li>
-<li>   MySQL的备份恢复方案（for disaster/misoperation）</li>
-<li>   高可用方案（failover）</li>
-<li>   软件bugfix升级</li>
-<li>   Scale up（硬件升级）</li>
-<li>   Scale out（增加slave）</li>
-<li>   ……</li>
-</ul>
-</blockquote>
+<h3>Jdata的角色定位，和在数据分析领域所处的位置：</h3>
 
-<p>以上这些，统统由MySQL平台提供，你只需把主要精力放在业务需求的实现、代码和数据的设计上即可。</p>
+<p>源数据（日志）   ----&gt;  （日志）收集系统  ----&gt;   计算系统（Hadoop MapReduce等）  ----&gt;   对统计结果的保存、查询（Jdata）</p>
 
-<h2>统一概念</h2>
+<h2>实现的架构图</h2>
 
-<blockquote>
-<ul>
-<li>Cluster：一组主从结构（Master-Slave）的MySQL数据库（常见一主n从）</li>
-<li>Instance：一个MySQL实例（host/port唯一确定一个Instance，对应一个服务器进程）</li>
-<li>DB（Schema）：MySQL服务器中的逻辑DB，一个Instance可以有多个DB</li>
-</ul>
-</blockquote>
-
-<h2>MySQL平台 WebConsole</h2>
-
-<p><a href="https://mysql.qiyi.domain/">https://mysql.qiyi.domain/</a>(beta-0.1) 使用邮箱LDAP登录之后就可以看到这个页面：
-<img src="http://qss.inter.qiyi.domain/qiyidoc/home.png" alt="HomePage"></p>
-
-<h3>一、基本信息</h3>
-
-<p><img src="http://qss.inter.qiyi.domain/qiyidoc/show.png" alt="HomePage">
-这里列出了所有MySQL Instance的、主机/端口，Server-id，角色（Master/Slave），域名，提供的服务（Write、Read），创建时间</p>
-
-<h4>详细1：扩展信息</h4>
-
-<p><img src="http://qss.inter.qiyi.domain/qiyidoc/show1.png" alt="HomePage">
-版本、数据大小、复制的设置</p>
-
-<h4>详细2：备份信息</h4>
-
-<p><img src="http://qss.inter.qiyi.domain/qiyidoc/show21.png" alt="HomePage">
-逻辑和物理备份的一些信息，包括备份时间、下次备份时间、备份文件的下载</p>
-
-<h4>详细3：监控阈值</h4>
-
-<p><img src="http://qss.inter.qiyi.domain/qiyidoc/show3.png" alt="HomePage"></p>
-
-<h3>二、设置</h3>
-
-<p><img src="http://qss.inter.qiyi.domain/qiyidoc/set1.png" alt="HomePage"></p>
-
-<ul>
-<li>逻辑备份是使用mysqldump工具把数据库导出export成SQL文件的过程。</li>
-<li>物理备份是使用xtrabackup工具通过copy数据库物理文件的形式对其进行备份，效率高。</li>
-</ul><p><img src="http://qss.inter.qiyi.domain/qiyidoc/set2.png" alt="HomePage">
-在这里可以对监控的阈值进行调整。</p>
-
-<h3>三、慢查询报表</h3>
-
-<p><img src="http://qss.inter.qiyi.domain/qiyidoc/rpt.png" alt="HomePage"></p>
-
-<p>慢查询报表，一般用于排查问题，当发现报警说活动连接数过高等异常时，通过使用这个工具可以精确定位问题SQL。
-选择使用的域名、时间区间，然后就可以生成一张指定时间的慢查询报表</p>
-
-<h2>Coming Soon</h2>
-
-<ol>
-<li>主机、MySQL的各项性能监控图表</li>
-<li>支持binlog下载</li>
-<li>可查看my.cnf配置文件</li>
-<li>数据库的回滚（可恢复到之前任一时间点）</li>
-</ol><p><em>如果你有好的建议或意见请你告诉我;)</em></p>
-      </section>
+<p><img src="http://pic.yupoo.com/jcr-v/CvTkSIbI/1qZvI.png" alt="HomePage"></p>
+        </article>
+      </div>
     </div>
+    <footer>
+      <div class="owner">
+      <p><a href="https://github.com/CuiJing" class="avatar"><img src="https://secure.gravatar.com/avatar/900fed6ce02ee433a2f2b0ae37a926d3?s=30&amp;d=https://a248.e.akamai.net/assets.github.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png" width="48" height="48"/></a> <a href="https://github.com/CuiJing">CuiJing</a> maintains <a href="https://github.com/CuiJing/jdata">Jdata</a></p>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">iQIYI MySQL服务托管平台 maintained by <a href="https://github.com/CuiJing">CuiJing</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
 
-    
+      </div>
+      <div class="creds">
+        <small>This page generated using <a href="https://pages.github.com/">GitHub Pages</a><br/>theme by <a href="http://twitter.com/jonrohan/">Jon Rohan</a></small>
+      </div>
+    </footer>
+  </div>
+  <div class="current-section">
+    <a href="#top">Scroll to top</a>
+    <a href="https://github.com/CuiJing/jdata/tarball/master" class="tar">tar</a><a href="https://github.com/CuiJing/jdata/zipball/master" class="zip">zip</a><a href="" class="code">source code</a>
+    <p class="name"></p>
+  </div>
 
-  </body>
+  
+</body>
 </html>
