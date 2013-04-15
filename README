@@ -1,11 +1,11 @@
-Jdata(http://jdata.qiyi.domain/) 是一款对日志统计结果数据（事实表）进行存储、查询和展示的服务。
+Jdata(http://jdata.ndy.domain/) 是一款对日志统计结果数据（事实表）进行存储、查询和展示的服务。
 Jdata的角色，在数据分析所处的位置：
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;源数据（日志）   ---->  （日志）收集系统   -->   计算系统（Hadoop MapReduce等）  --->  对统计结果的保存、查询（Jdata）
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://qss.inter.qiyi.domain/qiyidoc/jdata.pptx"  target="_blank" class="link">简介PPT下载</a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://qss.inter.ndy.domain/ndydoc/jdata.pptx"  target="_blank" class="link">简介PPT下载</a>
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://wiki.qiyi.domain/display/sys/Jdata"  target="_blank" class="link">Wiki</a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://wiki.ndy.domain/display/sys/Jdata"  target="_blank" class="link">Wiki</a>
 
 ##################################################################
 2012年3月5日 14:39:11：加入缓存（memcached@10.11.50.44）  支持对历史sql数据的缓存
