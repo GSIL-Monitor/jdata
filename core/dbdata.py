@@ -1,15 +1,17 @@
 #_*_coding:utf-8 _*_
 import MySQLdb
 from MySQLdb import OperationalError,ProgrammingError,Warning
-import copy
+import copy,re,sys
 import time,md5,os,traceback
 from threading import Thread,Lock
 from dateutil import rrule
 from dateutil.parser import parse
 
+from jdata.core.plugins.filter import FilterGroupLimit
 from jdata.djutils.exceptions import *
-#TableNotExists,URLParameterError,SpecifiedTimeTooShort,TableNotExistsInDMC,TableNameIsRequried,DebugPrint
-import re
+from jdata.djutils.views import log,sqlcache, DMC_MASTER_W, DMC_MASTER_R
+
+
 class Data(object):
     def __init__(self,objectname, db_conf, fields_alias, meta_db):  #tuple 
         self.objectname = objectname
@@ -20,16 +22,18 @@ class Data(object):
         else:
             self.dmc = False
             self.tableprefix = self.db_conf['mysql']['tableprefix']
-        self.dmc_master_w = 'jdata/jdata@bjcnc.jdata.w.qiyi.db:6069/jdata'
-        self.dmc_master_r = 'jdata/jdata@bjcnc.jdata.r.qiyi.db:6069/jdata'
-        #self.dmc_balance_by = 'Load' # 'Round-Robin'
-        self.dmc_balance_by = 'Round-Robin' # 'Round-Robin'
+        self.dmc_master_w = DMC_MASTER_W
+        self.dmc_master_r = DMC_MASTER_R
+        self.dmc_balance_by = 'Round-Robin' # 'Load or Round-Robin'
         self.fields_alias=fields_alias
         self.meta_db = meta_db
         self.timefield=self.fields_alias['timeline'][0]
         self.multithreadresult = ()
         self.rowsfromdisk = 0
         self.rowsfrommem = 0
+        self.querys_notfound = 0
+        self.querys_frommem = 0
+        self.querys_fromdisk = 0
         self.multithreadlock=Lock()
         self._ParseMetaDB()
 
@@ -41,6 +45,7 @@ class Data(object):
             x = ' '.join([j for j in i[0].split(' ') if j])
             if x == 'primary key':
                 pk_cols = i[1].replace(')','').replace('(','').split(',')
+                pk_cols = [c.strip() for c in pk_cols]
                 allcols = [j[0].strip() for j in self.meta_db]
                 self.pk = [(col,allcols.index(col)) for col in pk_cols]
             elif x == 'index':
@@ -53,10 +58,10 @@ class Data(object):
     def query_master(self, sql):
         if sql.lower().find('select') == 0:
             c = self._conn(self.dmc_master_r)
-            #print 'MR',sql
+            log('MR: %s' %sql,2)
         else:
             c = self._conn(self.dmc_master_w)
-            #print 'MW',sql
+            log('MW: %s' %sql,2)
         cur = c.cursor()
         cur.execute(sql)
         t = cur.fetchall()
@@ -73,7 +78,7 @@ class Data(object):
                 where t.oname = "%s" and t.tname = "%s" and t.cid = c.cid' %(self.objectname, tablename)
         rst = self.query_master(sql)
         if len(rst) == 0:
-            raise TableNotExistsInDMC('%s %s' %(self.objectname, tablename))
+            raise TableNotExistsInDMC('%s: Table `%s` not found in DMC' %(self.objectname, tablename))
         writer,reader = rst[0]
         if readonly:
             return reader
@@ -86,11 +91,11 @@ class Data(object):
             lastcid = self.query_master(sql)[0][0]
         except IndexError:
             lastcid = 0
-        sql = 'select cid from jdata_dmc_cluster where cid > %s order by cid limit 1' %lastcid
+        sql = 'select cid from jdata_dmc_cluster where cmode = "RW" and cid > %s order by cid limit 1' %lastcid
         try:
             nextcid = self.query_master(sql)[0][0]
         except IndexError:
-            s = 'select cid from jdata_dmc_cluster order by cid limit 1'
+            s = 'select cid from jdata_dmc_cluster where cmode = "RW" order by cid limit 1'
             nextcid = self.query_master(s)[0][0]
         return nextcid
 
@@ -138,10 +143,10 @@ class Data(object):
     def queryexecute(self,sql, tablename = ''):
         if sql.lower().find('select') == 0:
             db = self.conn(readonly = True, tablename = tablename)
-            #print 'R:',sql
+            log('R: %s' %sql, 1)
         else:
             db = self.conn(readonly = False, tablename = tablename )
-            #print 'W:',sql
+            log('W: %s' %sql, 1)
         c=db.cursor()
         rows_examined = 0
         try:
@@ -149,14 +154,17 @@ class Data(object):
                 c.execute(sql)
             except OperationalError , e:
                 if e[0] == 1203:
-                    print '1203 Error max_user_connections, retry...'
+                    log('1203 Error max_user_connections, retry...', 1)
                     time.sleep(0.01)
                     c.execute(sql)
+                elif e[0] == 1050:
+                    raise TableAlreadyExists(e[1])
                 else:
                     raise e
             except ProgrammingError , e:
-                if sql.lower().find('select') == 0 and e[0] == 1146:
-                    raise TableNotExists(e[1])
+                #if sql.lower().find('select') == 0 and e[0] == 1146:
+                if e[0] == 1146:
+                    raise TableNotExists('Table not exists: '+e[1])
                 else:
                     raise e
                 
@@ -166,7 +174,7 @@ class Data(object):
                     d = dict([i.split(':') for i in d.split('  ')])
                     d = dict([(i[0], int(i[1])) for i in d.items()])
                 else:
-                    d = {'Records':c.rowcount}
+                    d = {'Records':c.rowcount, 'Deleted': 0, 'Skipped': 0, 'Warnings': 0}
             else:
                 d = c.fetchall()
                 c.execute('SHOW STATUS LIKE "Handler_read%"')
@@ -181,21 +189,18 @@ class Data(object):
 
     def query_append(self, mycursor, tablename ,values):
         i_sql = 'insert into ' +tablename+ ' values ("' + '","'.join(values) + '")'
-        try:
-            mycursor.execute(i_sql)
+        u_sql = ','.join( [i[0] + '= '+i[0]+ '+' + values[i[1]]  for i in self.nonpk] )
+        sql = '%s on duplicate key update %s' %(i_sql, u_sql)
+        mycursor.execute(sql)
+        row = mycursor.rowcount
+        if row == 1:
             return 'insert'
-        except:
-            pass
-        s_set = ','.join( [i[0] + '= '+i[0]+ '+' + values[i[1]]  for i in self.nonpk] )
-        s_where = ' and '.join( [i[0] + '="' + values[i[1]] + '"'  for i in self.pk ] )
-        u_sql = 'update '+tablename+' set ' +s_set +' where '+ s_where
-        mycursor.execute(u_sql)
-        return 'update'
+        elif row == 2:
+            return 'update'
         
     def query(self,s,iscache=True,refresh=False,tablename = ''):
         if not iscache:
             return self.queryexecute(s, tablename)
-        from djutils.views import sqlcache
         m=md5.new()
         m.update(s)
         ky=m.hexdigest()
@@ -204,7 +209,7 @@ class Data(object):
         if not refresh:
             v = sqlcache.get(ky)
             if v:
-                print 'CACHE HIT:',v['ProcessedRowsMem'],s
+                log('CACHE HIT:%s ProcessedRowsMem:%s' %(tablename, v['ProcessedRowsMem']))
                 return v
             else:
                 info = 'CACHE MISS:'
@@ -213,12 +218,12 @@ class Data(object):
         try:
             rst = self.queryexecute(s, tablename)
         except TableNotExists,e:
-            print info,e
+            log('%s %s' %(info, e), 1)
             return {'Data':(),'ProcessedRowsMem':0,'ProcessedRowsDisk':0}
         except TableNotExistsInDMC,e:
-            print info,e
+            log('%s %s' %(info, e), 1)
             return {'Data':(),'ProcessedRowsMem':0,'ProcessedRowsDisk':0}
-        print info,rst['ProcessedRowsDisk'],s
+        log('%s:%s ProcessedRowsDisk:%s' %(info, tablename, rst['ProcessedRowsDisk']))
         mem_rst = {}
         mem_rst['Data'] = rst['Data']
         mem_rst['ProcessedRowsMem'] = rst['ProcessedRowsDisk']
@@ -236,17 +241,22 @@ class Data(object):
         self.multithreadresult = self.multithreadresult + t
         self.rowsfromdisk = self.rowsfromdisk + rows_disk
         self.rowsfrommem = self.rowsfrommem + rows_mem
+        if rows_disk == 0:
+            if rows_mem == 0:
+                self.querys_notfound += 1
+            else:
+                self.querys_frommem += 1
+        else:
+            self.querys_fromdisk += 1
         
-        if str(step_minute) == '0':
+        if str(step_minute) == '0' and self.multithreadresult:
             if pageby:
                 pagebynum = len(pageby)
                 x={}
                 for i in self.multithreadresult:
                     k = tuple(i[:pagebynum])
                     if x.get(k):
-                        #v = [ x[k][j+1] + i[j+1]  for j in range(len(x[k])-pagebynum)]
                         v = [ x[k][-1-j] + i[-1-j]  for j in range(len(x[k])-pagebynum)]
-                        #v.insert(0,k)
                         v = list(k) + v
                         x[k] = v
                     else:
@@ -257,7 +267,10 @@ class Data(object):
                 for i in self.multithreadresult[0]:
                     x.append(0)
                 for i in  self.multithreadresult:
-                    x = [ x[j]+i[j] for j in range(len(i)) ]
+                    try:
+                        x = [ x[j]+i[j] for j in range(len(i)) ]
+                    except TypeError:
+                        pass
                 self.multithreadresult = (x,)
         self.multithreadlock.release()
 
@@ -270,12 +283,22 @@ class Data(object):
             return self.tableprefix+starttime[:split_idx]
         else:
             return self.tableprefix+time.strftime('%Y%m%d%H%i',time.localtime())[:split_idx]
+
     
     def createtable(self,tablename):
+        sql = 'select 1 from %s where 1=2' %tablename
+        try:
+            self.query(sql, iscache=False, tablename=tablename)
+            hastable = True
+        except:
+            hastable = False
+        if hastable:
+            raise TableAlreadyExists('Table %s already exists!' %tablename)
+        
         crtsql="create table "+tablename+" ("
         for col in self.meta_db:
                 crtsql=crtsql+col[0]+" "+col[1]+","
-        crtsql=crtsql[:-1]+");"
+        crtsql=crtsql[:-1]+") engine=MyISAM;"
         try:
             self.query(crtsql,iscache=False,tablename = tablename)
         except TableNotExistsInDMC:
@@ -290,15 +313,23 @@ class Data(object):
             self.dmc_remove_table(tablename)
 
 
-    def loadfile2db_append(self,file,tablename,fields_terminated=" "):
-        try:
-            self.createtable(tablename)
-            newtable = True
-        except:
-            newtable = False
-        if newtable:
-            return self.loadfile2db(file,tablename,fields_terminated)
+    def loadfile2db(self,file,tablename,fields_terminated=" ",load_mode = ''):
+        """
+        load_mode : append | replace | igonre(default)
+        """
+        if load_mode == 'append':
+            try:
+                self.createtable(tablename)
+            except:
+                pass
+                # Load File into MySQL should be one by one
+                # (忽略此问题)即使表不存在，新建表也不能使用direct方式，因为不能保证此文件中的数据没有duplicate key
+                return self._loadfile2db_one_by_one(file, tablename, fields_terminated)
+        # Load File into MySQL by DirectWrite LoadData
+        return self._loadfile2db_direct(file, tablename, fields_terminated, load_mode)
 
+
+    def _loadfile2db_one_by_one(self, file, tablename, fields_terminated):
         db = self.conn(readonly = False, tablename = tablename)
         cur = db.cursor()
         insert = 0
@@ -318,7 +349,8 @@ class Data(object):
                 elif r == 'update':
                     update += 1
             except:
-                print 'append error:',traceback.format_exc()
+                #print 'append error:',traceback.format_exc()
+                log('append error. %s' %traceback.format_exc(), 1) 
                 err += 1
             
         f.close()
@@ -327,7 +359,7 @@ class Data(object):
         return {'Records': rec,  'Added':insert ,  'Updated':update,  'Errors': err} 
             
             
-    def loadfile2db(self,file,tablename,fields_terminated=" ",load_mode = ''):
+    def _loadfile2db_direct(self, file, tablename, fields_terminated, load_mode):
         from warnings import filterwarnings
         filterwarnings('ignore', category = Warning)
         try:
@@ -335,6 +367,8 @@ class Data(object):
         except:
             #print 'table ',tablename,'exits'
             pass
+        if load_mode == 'append':
+            load_mode = ''
         loadsql='load data local infile "'+file+'" '+load_mode+' into table '+tablename+'  fields terminated by "'+fields_terminated+'";'
         r = self.query(loadsql,iscache=False, tablename = tablename)
         return r
@@ -354,22 +388,18 @@ class Data(object):
             return self.query(sql,iscache=False, tablename = tablename)
 
 
-    def distinct(self,field):
-        table=self.gettablename(time.strftime('%Y%m%d',time.localtime(time.mktime(time.localtime())-60*60*24)))
-        sql='select distinct '+field+' from '+table
-        r=self.query(sql, table)['Data']
-        return tuple([ i[0] for i in r ])
-
-
     def rawget(self,q_dict,step_minute=None): #query_dict  #step(time): 5 (unit:minute)
         if not step_minute:
             if not q_dict.has_key('_tstep'):
                 step_minute=5
             else:
                 step_minute=q_dict['_tstep']
-
+        step_sec = 60*int(step_minute)
         time1=time.time()
-        time_field='date_format(date_add(concat('+self.timefield+',"00") ,interval -mod(right('+self.timefield+',2),'+str(step_minute)+') minute),"%Y/%m/%d %H:%i")'
+        #time_field='date_format(date_add(concat('+self.timefield+',"00") ,interval -mod(right('+self.timefield+',2),'+str(step_minute)+') minute),"%Y/%m/%d %H:%i")'
+        time_field = 'from_unixtime(floor((unix_timestamp(concat(%s,"00"))+28800)/%s)*%s-28800, "%s")'  %(self.timefield, step_sec, step_sec, "%Y/%m/%d %H:%i")
+        # +-28800 主要是为了去除unixtime不是从0点开始（从1970-01-01 08:00:00开始）的影响
+
         querylist=[]
         display_fields = []
         sql_s = 'select '  #select sql
@@ -377,7 +407,6 @@ class Data(object):
             sql_s=sql_s+time_field+', '
             display_fields.append('时间')
         if q_dict.get('_pageby',''):
-            #sql_s=sql_s+q_dict['_pageby']+','
             for j in q_dict['_pageby']:
                 if j in self.fields_alias.keys():
                     display_fields.append(self.fields_alias[j][1])
@@ -393,12 +422,18 @@ class Data(object):
             if i in self.fields_alias.keys():
                 display_fields.append(self.fields_alias[i][1])
                 i = self.fields_alias[i][0].replace('_minutes',str(step_minute))
+                i = i.replace('_tstep', str(step_minute))
             else:
                 try:
                     fd_name = [o[2] for o in self.meta_db if o[0] == i][0]
                 except:
                     fd_name = i
                 display_fields.append(fd_name)
+            #check tstep:如果tstep=0，只允许sum,count(加)，暂不支持减乘除,avg,max,min等
+            if str(step_minute) == '0':
+                for x in ('/', '*', '-', 'avg', 'max', 'min'):
+                    if i.find(x) >= 0:
+                        raise UnsupportedQuery('Field `%s` is not supported with `_tstep=0`' %i)
             sql_s=sql_s+i+','
         sql_s = sql_s[:-1]+' from '
         sql_w = ' where '   #where sql
@@ -457,17 +492,73 @@ class Data(object):
             i.start()
         for i in mythread:
             i.join()
+
         data= list(self.multithreadresult)
         data.sort()
-        rows_disk = self.rowsfromdisk
-        rows_mem = self.rowsfrommem
+        rst_cnt = len(data)
+        querys = len(querylist)
+        elapsed = round(time.time()-time1,3)
+
+        log('[Data.rawget] Elapsed:%s QuerysALL:%s FromMem/Disk/NotFound:%s/%s/%s \
+ProcessedRowsDisk:%s ProcessedRowsMem:%s ResultCount:%s %s' %(elapsed, querys, self.querys_frommem, self.querys_fromdisk, self.querys_notfound, self.rowsfromdisk, self.rowsfrommem, rst_cnt, q_dict))
+        rst = {'Data':data, 'Metadata':display_fields, 'Elapsed':str(elapsed)+'s', 'ProcessedRowsDisk':str(self.rowsfromdisk)+' rows', 'ProcessedRowsMem':str(self.rowsfrommem)+' rows', 'ResultCount':str(rst_cnt)+' rows'}
         self.multithreadresult=()
         self.rowsfromdisk = 0
         self.rowsfrommem = 0
-        elapsed = round(time.time()-time1,3)
-        print '[Data.rawget] Elapsed:',elapsed,'ProcessedRowsDisk:',rows_disk,'ProcessedRowsMem:',rows_mem,q_dict
-        return {'Data':data, 'Metadata':display_fields, 'Elapsed':str(elapsed)+'s', 'ProcessedRowsDisk':str(rows_disk)+' rows', 'ProcessedRowsMem':str(rows_mem)+' rows', 'ResultCount':str(len(data))+' rows'}
-   
+        self.querys_notfound = 0
+        self.querys_frommem = 0
+        self.querys_fromdisk = 0
+        return rst
+  
+    def limit_rows_get(self, data, q_dict):
+        limit_rows =  q_dict.get('_limit_rows','') # limit_rows N;select_field_for_group;select_field_for_order
+        pagebys = q_dict.get('_pageby')
+        fields = q_dict.get('_fields')
+        try:
+            (num, select_field_for_group, select_field_for_order) = limit_rows.split(';')
+        except:
+            raise URLParameterError('The format of `_limit_rows` is: Num;select_field_for_group;select_field_for_order')
+        
+        # Num:前几个，正数是从小取，负数是从大取。
+        try:num = int(num)
+        except: raise URLParameterError('`_limit_rows`  %s is not INT' %num)
+
+        if num > 0:
+            get_v_idx = (None, num)
+        elif num < 0 :
+            get_v_idx = (num, None)
+        else:
+            raise URLParameterError('`_limit_rows`  %s cannot be zero' %num)
+
+
+        # 构造分组的key
+        # 用于分组的字段，如果不指定，默认按照ptime，如果指定就按照指定的字段进行分组。
+        idx_key = {}
+        if not select_field_for_group:
+            idx_key = {0:(None,None)}
+        else:
+            keys = [i for i in select_field_for_group.split(',') if i]
+            # 分别查找这些key的index
+            for k in keys:
+                if k.lower() == 'ptime':
+                    idx_key[0] = (None,None)
+                else:
+                    try:
+                        idx_key[pagebys.index(k) + 1] = (None, None)
+                    except ValueError:
+                        raise URLParameterError('`_limit_rows`  %s is not a pageby(groupby) field' %k)
+            
+        # 获取排序字段的index
+        # select_field_for_order：用于排序的字段，如果只有一个select_field，则可以不指定，否则需要明确指明哪一个字段排序。
+        if not select_field_for_order:
+            idx_v = -1
+        else:
+            try:idx_v = fields.index(select_field_for_order) - len(fields)
+            except ValueError: raise URLParameterError('`_limit_rows`  %s is not a select field' %select_field_for_order)
+
+
+        # Process Filter 
+        return FilterGroupLimit(data, idx_key, idx_v, get_v_idx)
 
     def get(self,q_dict,step_minute=None): #query_dict  #step(time): 5 (unit:minute)
         rst = self.rawget(q_dict,step_minute)
@@ -476,15 +567,34 @@ class Data(object):
             return rst
         if not q_dict.get('_pageby',''):
             return rst
-        elif len(q_dict['_pageby'])>1:
-            return rst
-        elif len(q_dict['_fields'])>1:
-            return rst
-        if str(q_dict.get('_tstep','')) == '0':
-            return rst
-        if q_dict.has_key('_rawdata'):
-            return rst
+
         time1 = time.time()
+        # 如果没有limit_rows参数，并且满足如下任一条件，则直接返回rawdata
+        if (not q_dict.get('_limit_rows','')) and (len(q_dict['_pageby'])>1 or len(q_dict['_fields'])>1 or str(q_dict.get('_tstep','')) == '0' or q_dict.has_key('_rawdata')):
+            return rst
+
+        # 如果有limit_rows参数，则直接按规则过滤
+        elif q_dict.get('_limit_rows',''):
+            new_data = self.limit_rows_get(data, q_dict)
+            action = 'Filter'
+
+        # 如果没有limit_rows参数，同时又都不满足上面几个条件，则会做数据填充和数据清洗
+        else:
+            filled = self.datafill(data)
+            new_data = self.dataclean(filled,q_dict.get('_dataclean',5))
+            action = 'Fill&Clean'
+
+        rst['Data'] = new_data
+        elapsed = round(time.time() - time1)
+        new_count = len(new_data)
+        log('[Data.%s] Elapsed: %s ResultCountChange %s --> %s' %(action, elapsed, rst['ResultCount'], new_count))
+
+        elapsed += float(rst['Elapsed'][:-1])
+        rst['Elapsed'] = str(elapsed)+'s'
+        rst['ResultCount'] = str(new_count)+' rows'
+        return rst
+
+    def datafill(self, data):
         pagebys = {}.fromkeys([i[1] for i in data]).keys()
         l = len(data[0])
         thistime = data[0][0]
@@ -504,14 +614,9 @@ class Data(object):
                 
         newdata = data+adddata
         newdata.sort()
-        cleaned = self.dataclean(newdata,q_dict.get('_dataclean',5))
-        rst['Data'] = cleaned
-        elapsed = round(time.time() - time1)
-        elapsed += float(rst['Elapsed'][:-1])
-        rst['Elapsed'] = str(elapsed)+'s'
-        rst['ResultCount'] = str(len(cleaned))+' rows'
-        print '[Data.get] Elapsed:',rst['Elapsed'],'ProcessedRowsDisk:',rst['ProcessedRowsDisk'],'ProcessedRowsMem:',rst['ProcessedRowsMem'],q_dict
-        return rst
+        return newdata
+
+        
 
     def dataclean(self,data,threshold):  #need pageby
         threshold = int(threshold)
@@ -526,6 +631,8 @@ class Data(object):
                     max_e[i[1]] = i[-1]
             else:
                 max_e[i[1]] = i[-1]
+        if max_v == 0:
+            return data
         for i in max_e:
             v = max_e[i] or 0
             if 100*(float(v)/float(max_v))<threshold:

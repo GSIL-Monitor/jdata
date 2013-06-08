@@ -38,6 +38,9 @@ class TableNotExistsInDMC(Exception):
 class TableNameIsRequried(Exception):
     errcode = 2403
 
+class TableAlreadyExists(Exception):
+    errcode = 2404
+
 class UploadDataMethodError(BaseError):
     errcode = 3401
 
@@ -52,3 +55,6 @@ class AccessDenied(BaseError):
 
 class DebugPrint(BaseError):
     errcode = 1000
+
+class UnsupportedQuery(BaseError):
+    errcode = 1407

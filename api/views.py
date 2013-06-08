@@ -16,7 +16,7 @@ def _alldatasources():
 def setting(request):
     """
     setting方法返回目前各数据对象的配置项
-    e.g. http://jdata.qiyi.domain/api/setting?_o=slowspeed1h
+    e.g. http://jdata.domain/api/setting?_o=slowspeed1h
     """
     obj = request.GET.get('_o','')
     opt = request.GET.get('opt','')
@@ -29,21 +29,6 @@ def setting(request):
     #rst.pop('URL_ALIAS')
     rst.pop('obj')
    
-    """ 
-    try:
-        rst['DB']['mysql'].pop('db_user')
-        rst['DB']['mysql'].pop('db_passwd')
-    except:
-        pass
-
-    try:
-        rst['DB']['mysql']['writer'].pop('db_user')
-        rst['DB']['mysql']['writer'].pop('db_passwd')
-        rst['DB']['mysql']['reader'].pop('db_user')
-        rst['DB']['mysql']['reader'].pop('db_passwd')
-    except:
-        pass
-    """
     try:
         w = rst['DB']['mysql']['writerurl']
         rst['DB']['mysql']['writerurl'] = w.split('@')[1]
@@ -61,7 +46,7 @@ def setting(request):
 def getquerydict(request):
     """
     getquerydict方法返回根据url解析出来的统一格式的请求参数
-    e.g. http://jdata.qiyi.domain/api/getquerydict?_o=feedbacklog&_tstep=5&_dataclean=0&_fields=count&s=201203051555&e=201203061555&_lines=fields
+    e.g. http://jdata.domain/api/getquerydict?_o=feedbacklog&_tstep=5&_dataclean=0&_fields=count&s=201203051555&e=201203061555&_lines=fields
     """
     path=request.get_full_path()
     DM = DataModel(path = path)
@@ -70,7 +55,7 @@ def getquerydict(request):
 def gettables(request):
     """
     gettables 方法将返回此数据的表
-    e.g.  http://jdata.qiyi.domain/api/gettables?_o=cache_customer_bw
+    e.g.  http://jdata.domain/api/gettables?_o=cache_customer_bw
     """
     obj = request.GET.get('_o','')
     if not obj:
@@ -88,7 +73,7 @@ def gettables(request):
 def droptables(request):
     """
     droptables  删除指定MySQL Tables
-    e.g. http://jdata.qiyi.domain/api/droptable?_o=cache_customer_bw&_tables=t1,t2,t3
+    e.g. http://jdata.domain/api/droptable?_o=cache_customer_bw&_tables=t1,t2,t3
     
     """
     obj = request.GET.get('_o','')

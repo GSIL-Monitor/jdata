@@ -20,6 +20,7 @@ from views import *
 
 urlpatterns = patterns('',
      (r'^object/(?P<object_>.*)/*?$', rest),
+     (r'^papi/(?P<object_>.*)/*?$', papi),
      (r'^check/*?$',check_name_existed),
      (r'^create/?$', direct_to_template,{'template':"index.html"}),
      (r'^index/?$',listobject),

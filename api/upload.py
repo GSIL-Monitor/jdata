@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from jdata.djutils.views import return_http_json
+from jdata.djutils.views import return_http_json,log
 from jdata.djutils.exceptions import UploadDataMethodError,UploadDataParameterError,ObjectPKNotFound
 from jdata.core.datamodel import DataModel
 from os import mkdir,remove
@@ -22,12 +22,16 @@ def upload_result_file(request):
                         replace:   如果已存在，则替换掉旧数据
                         append:    如果已存在，则往上累加（除主键外的其他字段，当存在百分比类似的数据时不适合使用append，除非确认可以对这些字段做累加）
 
-    e.g. curl  -F file=@filename -F _o=cdnbw -F _s=201203201340 -F '_t=,' -F data_exists_action=replace http://jdata.qiyi.domain/api/uploadresultfile
+    e.g. curl  -F file=@filename -F _o=cdnbw -F _s=201203201340 -F '_t=,' -F data_exists_action=replace http://jdata.domain/api/uploadresultfile
 
     """
     uploaddir = '/tmp/jdata/'
     if not isdir(uploaddir):mkdir(uploaddir)
     if request.method == 'POST':
+        if request.META.has_key('HTTP_X_FORWARDED_FOR'):  
+            client =  request.META['HTTP_X_FORWARDED_FOR']  
+        else:  
+            client = request.META['REMOTE_ADDR'] 
         file = request.FILES['file']
         filename = file.name
         try:obj = request.POST['_o']
@@ -50,25 +54,18 @@ def upload_result_file(request):
 
         if data_exists_action in('ignore','replace', 'append'):
             tablename = DM.Data.gettablename(timeline)
-            if data_exists_action == 'ignore':
-                load_mode = ''
-            elif data_exists_action == 'replace':
+            if data_exists_action in ('replace', 'append'):
                 if not DM.Data.pk:
-                    raise ObjectPKNotFound('No PK Found For this Data `'+obj+'` ,so you can not use parameter `replace`')
-                load_mode = 'replace'
-            elif data_exists_action == 'append':
-                if not DM.Data.pk:
-                    raise ObjectPKNotFound('No PK Found For this Data`'+obj+'` ,so you can not use parameter `append`')
-                rst = DM.Data.loadfile2db_append(tmpfile,tablename,fields_terminated)
-                print 'uploadresult:',str(int(time.time()-t1))+'s',tmpfile,rst
-                return return_http_json(rst)
-            rst = DM.Data.loadfile2db(tmpfile,tablename,fields_terminated,load_mode)
-            print 'uploadresult:',str(int(time.time()-t1))+'s',tmpfile,rst
-            try: remove(tmpfile)
-            except: pass
+                    raise ObjectPKNotFound('No PK Found For this Data `%s` ,so you can not use parameter `%s`' %(obj, data_exists_action))
+            rst = DM.Data.loadfile2db(tmpfile, tablename, fields_terminated, data_exists_action)
+            log('upload: %s %s [%s] %ss %s %s' %(client, obj, data_exists_action, int(time.time()-t1),tmpfile,rst))
+            try: 
+                remove(tmpfile)
+            except:
+                log('remove resultfile Failed: %s' %tmpfile)
             return return_http_json(rst)
         else:
             raise UploadDataParameterError(" Unknown value `"+data_exists_action+"` for data_exists_action")
     else:
-        raise UploadDataMethodError("""Please POST your data like this: curl  -F file=@filename -F _o=cdnbw -F _s=201203201340 -F '_t= '  http://jdata.qiyi.domain/api/uploadresultfile""")
+        raise UploadDataMethodError("""Please POST your data like this: curl  -F file=@filename -F _o=cdnbw -F _s=201203201340 -F '_t= '  http://jdata.domain/api/uploadresultfile""")
         

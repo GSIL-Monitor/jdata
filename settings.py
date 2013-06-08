@@ -1,34 +1,40 @@
 # Django settings for jdata project.
+import re
 import os
 
+LOG_LEVEL = 0
+
+DEBUG = False
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 PROJECT_PATH = os.path.split(os.path.abspath(__file__))[0]
 PROJECT_DIR = PROJECT_PATH
 PROJECT_NAME = PROJECT_PATH.strip().strip('/').split('/')[-1]
 
-DEBUG = True
-
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
 )
 
-#PROJECT_DIR = '/data/svn/sysnetrd/trunk/jdata/'
-PROJECT_DIR = os.getcwd()
 
 MANAGERS = ADMINS
 
 
+DMC_MASTER_W = 'jdata/jdata@192.168.9.152:3306/jdata'
+DMC_MASTER_R = 'jdata/jdata@192.168.9.152:3306/jdata'
+
+MYSQL_CONFIG = re.search('^(?P<user>([0-9a-zA-Z-_\.]*?))/[\'\"]?(?P<passwd>([\s\S]*?))[\'\"]?@(?P<host>([0-9a-zA-Z\._-]*?)):(?P<port>(\d*?))/(?P<db>([0-9a-zA-Z-_])*?)$', DMC_MASTER_W).groupdict()
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql', # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': 'jdata',                      # Or path to database file if using sqlite3.
-        'USER': 'jdata',                      # Not used with sqlite3.
-        'PASSWORD': 'jdata',                  # Not used with sqlite3.
-        'HOST': 'bjcnc.jdata.w.qiyi.db',                      # Set to empty string for localhost. Not used with sqlite3.
-        'PORT': '6069',                      # Set to empty string for default. Not used with sqlite3.
+        'NAME': MYSQL_CONFIG['db'],                      # Or path to database file if using sqlite3.
+        'USER': MYSQL_CONFIG['user'],                      # Not used with sqlite3.
+        'PASSWORD': MYSQL_CONFIG['passwd'],                  # Not used with sqlite3.
+        'HOST': MYSQL_CONFIG['host'],      # Set to empty string for localhost. Not used with sqlite3.
+        'PORT': MYSQL_CONFIG['port'],                      # Set to empty string for default. Not used with sqlite3.
     }
 }
+
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
@@ -101,55 +107,28 @@ TEMPLATE_DIRS = (
 )
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    #'django.contrib.sessions.middleware.SessionMiddleware',
     #'django.middleware.csrf.CsrfViewMiddleware',
     #'django.middleware.csrf.CsrfResponseMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
+    #'django.contrib.auth.middleware.AuthenticationMiddleware',
+    #'django.contrib.messages.middleware.MessageMiddleware',
     'djutils.middleware.JdataMiddleware',
 )
 
 ROOT_URLCONF = 'jdata.urls'
 
 INSTALLED_APPS = (
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.sites',
-    'django.contrib.messages',
+    #'django.contrib.auth',
+    #'django.contrib.contenttypes',
+    #'django.contrib.sessions',
+    #'django.contrib.sites',
+    #'django.contrib.messages',
     #'django.contrib.staticfiles',
     # 'django.contrib.admindocs',
-     'django.contrib.admin',
+    # 'django.contrib.admin',
      'app',
 )
 
 
-CACHE_BACKEND = "memcached://10.11.50.44:11211/?timeout=3600"
+CACHE_BACKEND = "memcached://192.168.9.152:11211/?timeout=3600"
 
-# A sample logging configuration. The only tangible logging
-# performed by this configuration is to send an email to
-# the site admins on every HTTP 500 error.
-# See http://docs.djangoproject.com/en/dev/topics/logging for
-# more details on how to customize your logging configuration.
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'mail_admins': {
-            'level': 'ERROR',
-            'class': 'django.utils.log.AdminEmailHandler'
-        }
-    },
-    'loggers': {
-        'django.request':{
-            'handlers': ['mail_admins'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
-    }
-}
-
-LOGIN_URI = '/login/'
-LOGOUT_URI = '/logout/'
-REGISTION_URI = '/registion/'
-SQLURI = "mysql://user:password@host:port/database?charset=utf8"

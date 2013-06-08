@@ -11,8 +11,8 @@ def q(request):
     """
     等同于qjson方法，返回字典JSON数据 ，除了包含结果数据，还包含处理时长、处理的记录条数、返回的字段含义等等
      {'Data':data, 'Metadata':display_fields, 'Elapsed':elapsed, 'RowsFromDisk':rows_disk, 'RowsFromMem':rows_mem}
-    e.g. http://jdata.qiyi.domain/data/q?_o=cdnbw&_tstep=5&cdn_type=qihu360&_dataclean=0&_fields=request&s=201202211504&e=201203041504&_lines=fields
-    wiki: http://wiki.qiyi.domain/display/sys/Jdata
+    e.g. http://jdata.domain/data/q?_o=cdnbw&_tstep=5&cdn_type=qihu360&_dataclean=0&_fields=request&s=201202211504&e=201203041504&_lines=fields
+    wiki: http://wiki.domain/display/sys/Jdata
     """
     path=request.get_full_path()
     DM=DataModel(path=path)

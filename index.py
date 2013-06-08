@@ -4,8 +4,6 @@ from jdata.djutils.views import HttpResponse,project_dir
 import urls
 import urllib2
 
-#3
-#4
 def _text2html(str):
     return str.replace('\n','<br>').replace(' ','&nbsp;').replace('\t','&nbsp;' * 10)
 
@@ -38,13 +36,12 @@ def _show_urls(response,urllist,depth=0):
 def index(request):
     """
     The manual of Jdata
-    e.g.  http:/jdata.qiyi.domain/
+    e.g.  http:/jdata.domain/
     """
     r = HttpResponse()
     f = open(project_dir+'/README','rb')
-    r.write('<link rel="stylesheet" type="text/css" media="all" href="http://static.qiyi.com/css/common/hudong2_css/common.css?v=42727" />')
+    #r.write('<link rel="stylesheet" type="text/css" media="all" href="http://static.com/css/common/hudong2_css/common.css?v=42727" />')
     r.write(f.read().replace('\n','<br>'))
     _show_urls(r,urls.urlpatterns)
     return r
-
 

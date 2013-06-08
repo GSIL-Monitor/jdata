@@ -10,7 +10,7 @@ PIDFILE=/var/run/jdata.pid
 OUTLOG=/var/log/jdata.out.log
 ERRLOG=/var/log/jdata.err.log
 PORT=18017
-MEMCACHED=10.11.50.44:11211
+MEMCACHED=192.168.9.152:11211
 
 ###################################
 
@@ -22,13 +22,18 @@ basedir=`pwd`
 function help(){
  echo
  echo "Usage:"
- echo -e "\t $0 start|stop|restart"
+ echo -e  "\t $0 start|stop|restart|test"
  echo
  exit
  }
 
 function start(){
    $PYTHON27 manage.py runfcgi method=threaded host=127.0.0.1 port=$PORT pidfile=$PIDFILE outlog=$OUTLOG errlog=$ERRLOG
+}
+
+function runtest(){
+   [ -z $1 ] && port=8080 || port=$1
+   $PYTHON27 manage.py runserver 0.0.0.0:$port 
 }
 
 function stop(){
@@ -40,7 +45,9 @@ if [ -z $1 ];then
   help
 fi
 
-sed  's/CACHE_BACKEND.*/CACHE_BACKEND = "memcached:\/\/'$MEMCACHED'\/?timeout=3600"/g' settings.py -i
+sed -i -e 's/CACHE_BACKEND.*/CACHE_BACKEND = "memcached:\/\/'$MEMCACHED'\/?timeout=3600"/g' settings.py 
+
+
 
 case $1 in 
   start)
@@ -52,6 +59,9 @@ case $1 in
   restart)
     stop
     start
+    ;;
+  test)
+    runtest $2
     ;;
   *)
     help

@@ -4,7 +4,7 @@
 from jdata.core.dbdata import Data
 from jdata.djutils.views import project_dir,simplejson
 from jdata.djutils.exceptions import URLParameterError,ObjectNotFound,ObjectConfigError,ObjectConfigTestError,ObjectInitError
-import time
+import time,base64
 import os,imp,urllib2
 from jdata.app.models import conf as ObjectConfig
 
@@ -15,11 +15,11 @@ def QueryDict(path):
         path = path[path.find('?')+1:]
     rst = {}
     for kv in path.split('&'):
-        try:
-            k,v = kv.split('=')
-            rst[k]=v
-        except:
-            rst[kv]=''
+        idx = kv.find('=')
+        if idx > 0:
+            rst[ kv[:idx] ] = kv[idx+1 :]
+        else:
+            rst[kv] = ''
     return rst
 
 
@@ -42,6 +42,7 @@ class DataModel(object):
             raise ObjectConfigError('object `'+str(self.objectname)+'` configuration error:   '+str(e))
         self._auto_gen_config()
         self.Data = Data(self.objectname, self.DB, self.FIELDS_ALIAS, self.METADB)
+
 
     def check_new_config(self):
         testtable = 'jdata_config_test_table'
@@ -105,66 +106,113 @@ class DataModel(object):
             self.METADB_CHART[i] = {'p':i,'name':(self.FIELDS_DISPNAME.get(i) or i),'pageby':False,'filter':False,'fields':True}
         
         
-        """
-        self.DB = hasattr(obj,'DB') and getattr(obj,'DB') or obj['DB']
-        self.METADB = hasattr(obj,'METADB') and getattr(obj,'METADB') or obj['METADB']
-        try:    self.URL_ALIAS = hasattr(obj,'URL_ALIAS') and getattr(obj,'URL_ALIAS') or obj['URL_ALIAS']
-        except: self.URL_ALIAS = {'s':'starttime','e':'endtime'}
-        self.FIELDS_ALIAS = hasattr(obj,'FIELDS_ALIAS') and getattr(obj,'FIELDS_ALIAS') or obj['FIELDS_ALIAS']
-        self.Data = Data(self.DB,'mysql',self.FIELDS_ALIAS,self.METADB)
-        _FIELDS_NAME = {}
-        for i in self.METADB:
-            try:_FIELDS_NAME[i[0]] = i[2]
-            except:pass
-        _FIELDS_NAME.update(dict([(ii[0],ii[1][1]) for ii in self.FIELDS_ALIAS.items()]))
-
-        str_fields =  [ i[0] for i in  list(self.METADB) if 'char' in i[1]]
-        int_fields = self.FIELDS_ALIAS.keys()
-        int_fields.remove('timeline')
-        result = {}
-        for i in str_fields:
-            result[i] = {'p':i,'name':(_FIELDS_NAME.get(i) or i),'pageby':True,'filter':True,'fields':False}
-        for i in int_fields:
-            result[i] = {'p':i,'name':(_FIELDS_NAME.get(i) or i),'pageby':False,'filter':False,'fields':True}
-        #print 're',result
-        _METADB_CHART = result
-        #_METADB_CHART[obj.FIELDS_ALIAS['timeline'][0]]['filter'] = False  
-        try:
-            del _METADB_CHART[obj.FIELDS_ALIAS['timeline'][0]] 
-        except:
-            pass
-        try:
-            del _METADB_CHART['ptime']
-        except:
-            pass
-
-        METADB_CHART_ = hasattr(obj,'METADB_CHART') and getattr(obj,"METADB_CHART",{}) or obj['METADB_CHART']
-        _METADB_CHART.update(METADB_CHART_.copy())
-        try:self.NAME = obj.NAME
-        except:self.NAME = objectname
-        try:self.METADB_CHART = _METADB_CHART
-        except:self.METADB_CHART = {}
-        try:self.SHOW_IN_QUERY = obj.SHOW_IN_QUERY
-        except:self.SHOW_IN_QUERY = True
-        try:self.TRUSTED_IPS = obj.TRUSTED_IPS.values()
-        except: self.TRUSTED_IPS = []
-        try:
-            self.DB['mysql']['writer'] = self.DB['mysql']['writerurl']
-            self.DB['mysql']['reader'] = self.DB['mysql']['readerurl']
-        except:
-            pass
-        self.ALLOWIPS = obj.get('ALLOWIPS') or []
-        """
         
     def get_objectname_by_path(self,path):
-        items=QueryDict(path).items()
-        for i in items:
-            if i[0] == '_o':
-                return i[1]
+        url_q = QueryDict(path)
+        if url_q.has_key('_o'):
+            return url_q['_o']
+        if url_q.has_key('_sql'):
+            return self.get_query_dict_by_sql(url_q['_sql'])['_o']
         raise URLParameterError('parameter  `_o` is required.') 
 
-    
+  
+    def get_query_dict_by_sql(self, base64_sql):
+        src_sql = base64.b64decode(base64_sql)
+        sql = src_sql.lower().strip().replace('\n', ' ').replace('\t', ' ')
+        while True:
+            if sql.find('  ')>0:
+                sql = sql.replace('  ',' ')
+            else:
+                break
+        if not sql.startswith('select'):
+            raise URLParameterError('You have an error in your SQL syntax: [%s]' %src_sql)
+
+        # 去掉select关键字
+        sql = sql[6:]
         
+        try:
+            (sql_1, sql_2) = sql.split(' from ')
+        except ValueError:
+            raise URLParameterError('You have an error in your SQL syntax: no `from` found. [%s]' %src_sql)
+        
+        # 拿到查询的字段 _fields  sql_1=' _tstep:5 _refresh field1,field2 '
+        fields = [i.strip() for i in sql_1.split(',') if i.strip()]
+        _fields = [fields[0].split()[-1],] + fields[1:]
+                
+        # 获取其他jdata参数 
+        jdata_paras  = fields[0].split()[:-1]
+        
+
+        # 获取表名:_o   
+        # where后面的过滤条件: sql_w --> _filters
+        # group by后面的分组条件: sql_g --> _pageby
+
+        try:
+            (sql_o_w, sql_g) = sql_2.split(' group by ')
+            
+        except ValueError:
+            sql_o_w = sql_2
+            sql_g = ''
+        
+        try:
+            _o, sql_w = sql_o_w.split(' where ')
+        except ValueError:
+            _o = sql_o_w
+            sql_w = ''
+
+        #  _filters
+        _filters = []
+        _s = ''
+        _e = ''
+        for i in  sql_w.split(' and '):
+            i = i.strip()
+            if not i:
+                continue
+            if i.startswith('ptime'):
+                if i.find('>=')>0:
+                    _s = i.split('>=')[1]
+                elif i.find('>')>0:
+                    _s = i.split('>')[1]
+                elif i.find('<=')>0:
+                    _e = i.split('<=')[1]
+                elif i.find('<')>0:
+                    _e = i.split('<')[1]
+                elif i.find('=')>0:
+                    _s = i.split('=')[1]
+                    _e = i.split('=')[1]
+                else:
+                    raise URLParameterError('You have an error in your SQL syntax: `%s` [%s]' %(i,src_sql))
+            else:
+                _filters.append(i)
+        _s = _s.strip()
+        _e = _e.strip()
+
+        # _pageby 
+        _pageby = [i for i in sql_g.split(',') if i ]
+
+        query_dict =  {'_o':_o,
+                '_fields':_fields,
+                '_filters':_filters,
+                '_pageby':_pageby,
+                }
+
+        # _s & _e
+        if _s:
+            query_dict['_s'] = _s
+        if _e:
+            query_dict['_e'] = _e
+    
+        # set jdata_paras
+        for i in jdata_paras:
+            if i.find(':')>0:
+                (k, v) = i.split(':')
+                query_dict[k] = v
+            else:
+                query_dict[i] = ''
+        
+        return query_dict
+
+ 
     def get_query_dict(self,path):
         path = urllib2.unquote(path)
         items=QueryDict(path).items()
@@ -195,22 +243,46 @@ class DataModel(object):
                     query_dict['_filters'].append(k+' like "'+i[1]+'"')
                 else:
                     query_dict['_filters'].append(k+'="'+i[1]+'"')
-        if query_dict.has_key('_nourlcheck'):
+        if query_dict.has_key('_sql'):
+            query_dict =  self.get_query_dict_by_sql(query_dict['_sql'])
+                
+        if query_dict.has_key('_nocheck') or query_dict.has_key('_nourlcheck'):
             return query_dict
         if not query_dict.has_key('_o'):
             raise URLParameterError('parameter  `_o` is required.')
+        if len(query_dict['_fields'])==0:
+            raise URLParameterError('parameter  `_fields` is required.')
+        self._check_query_dict(query_dict)
+        return query_dict
+
+
+
+    def _check_query_dict(self, query_dict):
         for i in query_dict['_fields']:
             keys = self.FIELDS_ALIAS.keys() + self.Data.cols
             if i not in keys:
-                raise URLParameterError('Unknown field `'+i+'` in `_fields` , expecting one of: "'+', '.join(keys)+'"')
+                raise URLParameterError('Unknown field `'+i+'`  , expecting one of: "'+', '.join(keys)+'"')
         for i in query_dict['_filters'] + query_dict['_pageby']:
             i = i.split()[0].split('=')[0]
             if not (i in self.Data.cols):
                 raise URLParameterError('Unknown field `'+i+'` , expecting one of: "'+', '.join(self.Data.cols)+'"')
+
+        # tstep有效性检查
+        # 默认5分钟，必须填整数，单位分钟
+        # 如果长度超过了分表粒度，则报错
         tstep = query_dict.get('_tstep',5)
         try:
-            if int(tstep) > 60:
-                raise URLParameterError('`_tstep` must less than 60 minute ,default is 5(min), current value is %s' %tstep)
+            tstep = int(tstep)
         except ValueError:
             raise URLParameterError('The value of parameter `_tstep` must integer')
-        return query_dict
+
+        split_idx = self.DB['mysql']['table_split_idx']
+        if split_idx <= 8:  # 分表粒度为day month year的，最大tstep是1 day
+            max_tstep = 60*24
+        elif split_idx == 10:  # 分表粒度为 Hour 的，最大tstep是1 hour
+            max_tstep = 60
+        elif split_idx == 12: #分表粒度为 minute的，最大tstep是1 minute
+            max_tstep = 1;
+        if int(tstep) > max_tstep:
+            raise URLParameterError('`_tstep` must less than %s minute ,default is 5(min), current value is %s' %(max_tstep, tstep))
+
