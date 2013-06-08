@@ -1,6 +1,6 @@
 jdata
 =====
-Jdata(http://jdata..domain/) 是一款对日志统计结果数据（事实表）进行存储、查询和展示的服务。
+Jdata(http://your.jdata.domain/) 是一款对日志统计结果数据（事实表）进行存储、查询和展示的服务。
 Jdata的角色，在数据分析所处的位置：
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;源数据（日志）   ---->  （日志）收集系统   -->   计算系统（Hadoop MapReduce等）  --->  对统计结果的保存、查询（Jdata）
